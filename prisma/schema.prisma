@@ -1,0 +1,357 @@
+// Bitsofwellness database. Every piece of content the mobile app shows lives here,
+// together with the data the app sends back (users, orders, subscriptions, requests).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------- Admin
+
+model Admin {
+  id           Int       @id @default(autoincrement())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         AdminRole @default(EDITOR)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  EDITOR
+}
+
+// ---------------------------------------------------------------- App users & their data
+
+model AppUser {
+  id               Int            @id @default(autoincrement())
+  phone            String         @unique
+  countryCode      String         @default("+91")
+  name             String         @default("")
+  email            String         @default("")
+  gender           String         @default("")
+  dob              DateTime?
+  heightCm         Float          @default(0)
+  weightKg         Float          @default(0)
+  targetWeightKg   Float          @default(0)
+  goal             String         @default("")
+  activityLevel    String         @default("")
+  dietPreference   String         @default("")
+  healthConditions Json?
+  isActive         Boolean        @default(true)
+  lastLoginAt      DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  weightLogs       WeightLog[]
+  orders           Order[]
+  subscriptions    Subscription[]
+  requests         Request[]
+}
+
+model WeightLog {
+  id       Int      @id @default(autoincrement())
+  userId   Int
+  kg       Float
+  loggedAt DateTime @default(now())
+  user     AppUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Order {
+  id           Int         @id @default(autoincrement())
+  orderNo      String      @unique
+  userId       Int?
+  phone        String
+  customerName String      @default("")
+  items        Json
+  total        Int
+  status       OrderStatus @default(PLACED)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  user         AppUser?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+}
+
+enum OrderStatus {
+  PLACED
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+model Subscription {
+  id            Int                @id @default(autoincrement())
+  userId        Int?
+  phone         String
+  planName      String
+  price         Int
+  paymentMethod String             @default("UPI")
+  status        SubscriptionStatus @default(ACTIVE)
+  startDate     DateTime           @default(now())
+  endDate       DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  user          AppUser?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+/// Call-backs, WhatsApp chats, consultation bookings, live-class joins and health-test bookings.
+model Request {
+  id        Int           @id @default(autoincrement())
+  userId    Int?
+  phone     String
+  name      String        @default("")
+  type      RequestType
+  subject   String        @default("")
+  note      String        @default("") @db.Text
+  status    RequestStatus @default(NEW)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  user      AppUser?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+}
+
+enum RequestType {
+  CALLBACK
+  WHATSAPP
+  CONSULTATION
+  LIVE_CLASS
+  HEALTH_TEST
+}
+
+enum RequestStatus {
+  NEW
+  CONTACTED
+  CLOSED
+}
+
+// ---------------------------------------------------------------- Content shown in the app
+
+model Dietitian {
+  id        Int      @id @default(autoincrement())
+  name      String
+  title     String
+  bio       String   @db.Text
+  image     String
+  years     Int      @default(0)
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  name      String
+  text      String   @db.Text
+  lostKg    Float    @default(0)
+  rating    Int      @default(5)
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Transformation {
+  id          Int      @id @default(autoincrement())
+  name        String
+  beforeImage String
+  afterImage  String
+  lostKg      Int
+  months      Int
+  story       String   @db.Text
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Recipe {
+  id          Int      @id @default(autoincrement())
+  title       String
+  image       String
+  minutes     Int
+  kcal        Int
+  ingredients Json
+  steps       Json
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Story {
+  id        Int      @id @default(autoincrement())
+  tag       String
+  title     String
+  image     String
+  body      String   @db.Text
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FeedPost {
+  id        Int      @id @default(autoincrement())
+  category  String
+  title     String
+  caption   String   @db.Text
+  image     String
+  likes     Int      @default(0)
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id          Int      @id @default(autoincrement())
+  name        String
+  image       String
+  price       Int
+  mrp         Int
+  category    String
+  description String   @db.Text
+  rating      Float    @default(4.5)
+  isFeatured  Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Plan {
+  id            Int      @id @default(autoincrement())
+  durationLabel String
+  name          String
+  price         Int
+  mrp           Int
+  features      Json
+  isRecommended Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Notification {
+  id          Int      @id @default(autoincrement())
+  type        String
+  title       String
+  body        String   @db.Text
+  isActive    Boolean  @default(true)
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model FoodSwap {
+  id        Int      @id @default(autoincrement())
+  fromName  String
+  fromKcal  String
+  toName    String
+  toKcal    String
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FoodItem {
+  id        Int      @id @default(autoincrement())
+  name      String
+  kcal      Int
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Tip {
+  id        Int      @id @default(autoincrement())
+  text      String   @db.Text
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OnboardingSlide {
+  id        Int      @id @default(autoincrement())
+  image     String
+  title     String
+  subtitle  String   @db.Text
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AssessmentQuestion {
+  id        Int      @id @default(autoincrement())
+  question  String
+  options   Json
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SpinReward {
+  id        Int      @id @default(autoincrement())
+  label     String
+  color     String
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Live Zone classes and Health Test packages.
+model Service {
+  id         Int         @id @default(autoincrement())
+  kind       ServiceKind
+  title      String
+  subtitle   String
+  priceLabel String
+  icon       String      @default("")
+  isActive   Boolean     @default(true)
+  sortOrder  Int         @default(0)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
+enum ServiceKind {
+  LIVE
+  HEALTH_TEST
+}
+
+/// Free-form app configuration: hero texts, goals, contact numbers, test account, etc.
+model Setting {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String   @db.Text
+  label     String   @default("")
+  group     String   @default("General")
+  updatedAt DateTime @updatedAt
+}
